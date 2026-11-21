@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>安心樹洞 ｜ 匿名求救與陪伴</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --bg-color: #F7F5F0;
+      --card-bg: #FFFFFF;
+      --primary-color: #5D7A64;
+      --primary-hover: #4A6350;
+      --text-main: #2C352D;
+      --text-muted: #7A8A7D;
+      --border-color: #E2E8E4;
+      --bubble-student: #5D7A64;
+      --bubble-volunteer: #EBF0EC;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-color); color: var(--text-main);
+      margin: 0; padding: 0; display: flex; justify-content: center; align-items: center;
+      height: 100vh; overflow: hidden; position: relative;
+    }
+    .nature-bg {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      overflow: hidden; z-index: -1; pointer-events: none;
+    }
+    .leaf {
+      position: absolute; width: 20px; height: 20px;
+      background: rgba(93, 122, 100, 0.12); border-radius: 50% 0 50% 50%;
+      animation: fall linear infinite;
+    }
+    @keyframes fall {
+      0% { transform: translateY(-10vh) translateX(0) rotate(0deg); opacity: 0; }
+      20% { opacity: 0.8; }
+      100% { transform: translateY(110vh) translateX(50px) rotate(360deg); opacity: 0; }
+    }
+    .app-container {
+      width: 100%; max-width: 580px; background: var(--card-bg); display: flex; flex-direction: column;
+      height: 100vh; max-height: 860px; border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(44, 53, 45, 0.06); overflow: hidden; border: 1px solid var(--border-color); z-index: 1;
+    }
+    @media(min-width: 600px) { .app-container { height: 90vh; } }
+    .header {
+      background: #2C352D; color: #F7F5F0; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .header h1 { font-size: 1.05rem; margin: 0; font-weight: 500; }
+    .badge { background: rgba(255,255,255,0.1); font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; color: #D1DDD5; }
+    .view-section { padding: 22px; overflow-y: auto; flex: 1; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+    .tab-btn {
+      flex: 1; padding: 10px; border: none; border-radius: 10px;
+      background: #EFECE6; color: var(--text-muted); font-weight: 600; cursor: pointer; font-size: 0.9rem;
+    }
+    .tab-btn.active { background: var(--primary-color); color: white; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.9rem; color: var(--text-main); }
+    select, textarea, input {
+      width: 100%; padding: 11px 14px; border: 1.5px solid var(--border-color); border-radius: 10px; font-size: 0.95rem;
+      background: #FAFAFA; color: var(--text-main); outline: none;
+    }
+    textarea { height: 100px; resize: none; }
+    .btn-primary {
+      width: 100%; padding: 13px; background: var(--primary-color); color: white;
+      border: none; border-radius: 10px; font-size: 0.98rem; font-weight: 600; cursor: pointer;
+    }
+    .chat-view { display: none; flex-direction: column; flex: 1; height: calc(100vh - 60px); }
+    .chat-banner {
+      background: #EBF0EC; border-bottom: 1px solid var(--border-color); padding: 10px 18px;
+      font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center;
+    }
+    .code-tag { font-weight: 700; background: white; padding: 2px 8px; border-radius: 6px; border: 1px dashed var(--primary-color); color: var(--primary-color); }
+    .chat-messages { flex: 1; padding: 18px; overflow-y: auto; background: #F7F5F0; display: flex; flex-direction: column; gap: 12px; }
+    .msg-row { display: flex; flex-direction: column; max-width: 82%; }
+    .msg-row.student { align-self: flex-end; align-items: flex-end; }
+    .msg-row.volunteer { align-self: flex-start; align-items: flex-start; }
+    .msg-sender { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 3px; padding: 0 4px; }
+    .msg-bubble { padding: 11px 15px; border-radius: 14px; font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+    .msg-row.student .msg-bubble { background: var(--bubble-student); color: white; border-bottom-right-radius: 4px; }
+    .msg-row.volunteer .msg-bubble { background: var(--bubble-volunteer); color: var(--text-main); border-bottom-left-radius: 4px; border: 1px solid var(--border-color); }
+    .msg-time { font-size: 0.7rem; color: var(--text-muted); margin-top: 3px; padding: 0 4px; }
+    .chat-input-area { padding: 12px 16px; background: white; border-top: 1px solid var(--border-color); display: flex; gap: 10px; align-items: center; }
+    .chat-input-area input { flex: 1; border-radius: 99px; padding: 11px 16px; background: #FAFAFA; }
+    .send-btn { background: var(--primary-color); color: white; border: none; border-radius: 99px; padding: 0 20px; height: 42px; font-weight: 600; cursor: pointer; }
+    .case-card { background: white; padding: 14px; border-radius: 12px; margin-bottom: 10px; border: 1.5px solid var(--border-color); cursor: pointer; }
+    .status-badge { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; float: right; }
+    .status-unreplied { background: #FEE2E2; color: #991B1B; }
+    .status-replied { background: #DEF7EC; color: #03543F; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <div class="nature-bg" id="natureBg"></div>
+
+<div class="app-container">
+  <div class="header">
+    <h1>🌲 安心樹洞</h1>
+    <span class="badge" id="roleBadge">匿名連線中</span>
+  </div>
+
+  <div id="mainTabs" style="display:flex; background:#EFECE6; padding:6px; gap:6px;">
+    <button class="tab-btn active" id="btnStudentTab" onclick="switchMainTab('student')">我要求救</button>
+    <button class="tab-btn" id="btnAdminTab" onclick="switchMainTab('admin')">志工登入</button>
+  </div>
+
+  <div id="studentView" class="view-section">
+    <div class="tabs">
+      <button class="tab-btn active" id="subTabNew" onclick="switchStudentTab('new')">發起新求救</button>
+      <button class="tab-btn" id="subTabResume" onclick="switchStudentTab('resume')">輸入代碼繼續聊</button>
+    </div>
+
+    <form id="newChatForm" onsubmit="handleStartChat(event)">
+      <div class="form-group">
+        <label>目前最緊急的狀況：</label>
+        <select id="status" required>
+          <option value="還沒轉帳/給資料，只是覺得怪怪的">還沒轉帳 / 給資料，覺得怪怪的</option>
+          <option value="【緊急】剛剛已經轉帳或匯款了">【緊急】剛才已經轉帳或匯款了</option>
+          <option value="【緊急】已經給出提款卡、密碼或驗證碼">【緊急】已給出提款卡、密碼或驗證碼</option>
+          <option value="【緊急】被對方威脅要散播私密照或個資">【緊急】被威脅要散播私密照或個資</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>詐騙類型：</label>
+        <select id="scamType" required></select>
+      </div>
+      <div class="form-group">
+        <label>情況簡述（不留真實姓名）：</label>
+        <textarea id="description" placeholder="請簡單描述發生經過..." required></textarea>
+      </div>
+      <button type="submit" id="startBtn" class="btn-primary">送出並建立匿名聊天室</button>
+    </form>
+
+    <div id="resumeForm" class="hidden">
+      <div class="form-group" style="margin-top: 10px;">
+        <label>專屬查詢代碼</label>
+        <input type="text" id="resumeCodeInput" placeholder="例如：HELP-EZ4A" style="text-transform: uppercase;">
+      </div>
+      <button onclick="handleResumeChat()" id="resumeBtn" class="btn-primary" style="margin-top: 10px;">進入聊天室</button>
+    </div>
+  </div>
+
+  <div id="adminLoginView" class="view-section hidden">
+    <div style="max-width: 300px; margin: 40px auto; text-align: center;">
+      <h3>志工後台登入</h3>
+      <div class="form-group" style="margin-top: 20px;">
+        <input type="password" id="adminPassword" placeholder="輸入密碼" onkeypress="if(event.key==='Enter') handleAdminLogin()">
+      </div>
+      <button onclick="handleAdminLogin()" id="loginBtn" class="btn-primary">登入</button>
+    </div>
+  </div>
+
+  <div id="adminDashboard" class="view-section hidden">
+    <div style="background: white; padding: 12px; border-radius: 10px; border: 1.5px solid var(--border-color); margin-bottom: 16px;">
+      <h4 style="margin: 0 0 8px 0; font-size: 0.95rem;">➕ 手動新增危機類別</h4>
+      <div style="display: flex; gap: 8px;">
+        <input type="text" id="newCatInput" placeholder="例如：虛擬貨幣投資" style="flex: 1; padding: 8px;">
+        <button onclick="handleAddCategory()" style="padding: 0 14px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">新增</button>
+      </div>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="margin:0; font-size:1rem;">求救案件列表</h3>
+      <button onclick="loadAdminCases()" style="padding:4px 10px; font-size:0.8rem; cursor:pointer; background:#EFECE6; border:none; border-radius:6px;">重新整理</button>
+    </div>
+    <div id="caseListContainer">載入中...</div>
+  </div>
+
+  <div id="chatView" class="chat-view">
+    <div class="chat-banner">
+      <span>代碼：<span id="displayCode" class="code-tag"></span></span>
+      <button onclick="leaveChat()" style="background:none; border:none; color:var(--primary-color); cursor:pointer; font-size:0.85rem; font-weight:600; text-decoration:underline;">離開</button>
+    </div>
+    <div id="chatMessages" class="chat-messages"></div>
+    <div class="chat-input-area">
+      <input type="text" id="msgInput" placeholder="輸入訊息..." onkeypress="if(event.key==='Enter') sendMsg()">
+      <button onclick="sendMsg()" id="sendBtn" class="send-btn">傳送</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const GAS_URL = window.location.href.split('?')[0];
+
+  const bg = document.getElementById('natureBg');
+  for (let i = 0; i < 12; i++) {
+    const leaf = document.createElement('div');
+    leaf.className = 'leaf';
+    leaf.style.left = Math.random() * 100 + 'vw';
+    leaf.style.top = -20 + 'px';
+    leaf.style.animationDuration = (8 + Math.random() * 10) + 's';
+    leaf.style.animationDelay = (Math.random() * 5) + 's';
+    bg.appendChild(leaf);
+  }
+
+  let currentCode = '';
+  let currentUserRole = '學生';
+  let refreshTimer = null;
+
+  window.onload = function() { loadCategories(); };
+
+  async function apiGet(action, params = {}) {
+    // 💡 加上 api=true 確保 GAS 知道這是 API 請求，絕對不回傳 HTML
+    const query = new URLSearchParams({ api: 'true', action, ...params }).toString();
+    const res = await fetch(`${GAS_URL}?${query}`);
+    return await res.json();
+  }
+
+  async function apiPost(data) {
+    // 💡 加上 ?api=true 確保 POST 時也不會被重新導向成 HTML
+    const res = await fetch(`${GAS_URL}?api=true`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+    return await res.json();
+  }
+
+  async function loadCategories() {
+    const res = await apiGet('getCategories');
+    if (res.success) {
+      const select = document.getElementById('scamType');
+      select.innerHTML = '';
+      res.categories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat; opt.innerText = cat;
+        select.appendChild(opt);
+      });
+    }
+  }
+
+  async function handleAddCategory() {
+    const input = document.getElementById('newCatInput');
+    const val = input.value.trim();
+    if (!val) return alert('請輸入類別名稱！');
+    const res = await apiPost({ action: 'addCategory', category: val });
+    if (res.success) {
+      alert('成功新增類別！');
+      input.value = '';
+      loadCategories();
+    } else {
+      alert(res.message);
+    }
+  }
+
+  function showScreen(screenId) {
+    document.getElementById('studentView').classList.add('hidden');
+    document.getElementById('adminLoginView').classList.add('hidden');
+    document.getElementById('adminDashboard').classList.add('hidden');
+    document.getElementById('chatView').style.display = 'none';
+
+    if (screenId === 'chatView') {
+      document.getElementById('mainTabs').style.display = 'none';
+      document.getElementById('chatView').style.display = 'flex';
+    } else {
+      document.getElementById('mainTabs').style.display = 'flex';
+      document.getElementById(screenId).classList.remove('hidden');
+    }
+  }
+
+  function switchMainTab(tab) {
+    document.getElementById('btnStudentTab').classList.remove('active');
+    document.getElementById('btnAdminTab').classList.remove('active');
+    if (tab === 'student') {
+      document.getElementById('btnStudentTab').classList.add('active');
+      document.getElementById('roleBadge').innerText = '匿名連線中';
+      showScreen('studentView');
+      loadCategories();
+    } else {
+      document.getElementById('btnAdminTab').classList.add('active');
+      document.getElementById('roleBadge').innerText = '志工模式';
+      showScreen('adminLoginView');
+    }
+  }
+
+  function switchStudentTab(tab) {
+    document.getElementById('subTabNew').classList.remove('active');
+    document.getElementById('subTabResume').classList.remove('active');
+    if (tab === 'new') {
+      document.getElementById('subTabNew').classList.add('active');
+      document.getElementById('newChatForm').classList.remove('hidden');
+      document.getElementById('resumeForm').classList.add('hidden');
+    } else {
+      document.getElementById('subTabResume').classList.add('active');
+      document.getElementById('newChatForm').classList.add('hidden');
+      document.getElementById('resumeForm').classList.remove('hidden');
+    }
+  }
+
+  async function handleStartChat(e) {
+    e.preventDefault();
+    currentUserRole = '學生';
+    const btn = document.getElementById('startBtn');
+    btn.disabled = true; btn.innerText = '建立中...';
+
+    const formData = {
+      status: document.getElementById('status').value,
+      scamType: document.getElementById('scamType').value,
+      description: document.getElementById('description').value
+    };
+
+    const res = await apiPost({ action: 'startNewChat', formData });
+    btn.disabled = false; btn.innerText = '送出並建立匿名聊天室';
+    if (res.success) enterChatRoom(res.code);
+    else alert(res.message);
+  }
+
+  async function handleResumeChat() {
+    currentUserRole = '學生';
+    const code = document.getElementById('resumeCodeInput').value.trim();
+    if (!code) return alert('請輸入代碼！');
+    const res = await apiGet('getChatHistory', { code });
+    if (res.found) enterChatRoom(res.code);
+    else alert(res.message);
+  }
+
+  async function handleAdminLogin() {
+    const pwd = document.getElementById('adminPassword').value;
+    const btn = document.getElementById('loginBtn');
+    btn.disabled = true; btn.innerText = '驗證中...';
+
+    const res = await apiPost({ action: 'volunteerLogin', password: pwd });
+    btn.disabled = false; btn.innerText = '登入';
+    if (res.success) {
+      showScreen('adminDashboard');
+      loadAdminCases();
+    } else {
+      alert(res.message);
+    }
+  }
+
+  async function loadAdminCases() {
+    const container = document.getElementById('caseListContainer');
+    container.innerHTML = '載入中...';
+    const res = await apiGet('getAllCases');
+    if (res.success) {
+      if (!res.cases || res.cases.length === 0) {
+        container.innerHTML = '<div style="padding: 16px; background: white; border-radius: 12px; border: 1.5px solid var(--border-color); text-align: center; color: var(--text-muted); font-size: 0.9rem;">目前無案件。</div>';
+        return;
+      }
+      container.innerHTML = '';
+      res.cases.forEach(c => {
+        const isReplied = c.processStatus === '已回覆';
+        const card = document.createElement('div');
+        card.className = 'case-card';
+        card.innerHTML = `
+          <div><strong>${c.code}</strong> <span class="status-badge ${isReplied ? 'status-replied' : 'status-unreplied'}">${c.processStatus}</span></div>
+          <div style="font-size:0.85rem; color:var(--text-main); margin-top:4px;">狀況：${c.status}</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">時間：${c.time} | 類型：${c.scamType}</div>
+        `;
+        card.onclick = () => { currentUserRole = '志工'; enterChatRoom(c.code); };
+        container.appendChild(card);
+      });
+    } else {
+      container.innerHTML = '載入失敗';
+    }
+  }
+
+  function enterChatRoom(code) {
+    currentCode = code;
+    document.getElementById('displayCode').innerText = code;
+    showScreen('chatView');
+    fetchMessages();
+    refreshTimer = setInterval(fetchMessages, 5000);
+  }
+
+  function leaveChat() {
+    clearInterval(refreshTimer);
+    currentCode = '';
+    if (currentUserRole === '志工') {
+      showScreen('adminDashboard');
+      loadAdminCases();
+    } else {
+      showScreen('studentView');
+    }
+  }
+
+  async function fetchMessages() {
+    if (!currentCode) return;
+    const res = await apiGet('getChatHistory', { code: currentCode });
+    if (res.found) renderMessages(res.messages);
+  }
+
+  async function sendMsg() {
+    const input = document.getElementById('msgInput');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    const res = await apiPost({ action: 'sendChatMessage', code: currentCode, text, sender: currentUserRole });
+    if (res.found) renderMessages(res.messages);
+  }
+
+  function renderMessages(messages) {
+    const container = document.getElementById('chatMessages');
+    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
+    container.innerHTML = '';
+    messages.forEach(m => {
+      const isMyMessage = (currentUserRole === '學生' && m.sender === '學生') || (currentUserRole === '志工' && m.sender === '志工');
+      const row = document.createElement('div');
+      row.className = `msg-row ${isMyMessage ? 'student' : 'volunteer'}`;
+      row.innerHTML = `
+        <div class="msg-sender">${m.sender === '學生' ? '我' : '志工'}</div>
+        <div class="msg-bubble">${escapeHtml(m.text)}</div>
+        <div class="msg-time">${m.time}</div>
+      `;
+      container.appendChild(row);
+    });
+    if (isAtBottom) container.scrollTop = container.scrollHeight;
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+</script>
+</body>
+</html>
