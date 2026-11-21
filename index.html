@@ -114,12 +114,7 @@
     <form id="newChatForm" onsubmit="handleStartChat(event)">
       <div class="form-group">
         <label>目前最緊急的狀況：</label>
-        <select id="status" required>
-          <option value="還沒轉帳/給資料，只是覺得怪怪的">還沒轉帳 / 給資料，覺得怪怪的</option>
-          <option value="【緊急】剛剛已經轉帳或匯款了">【緊急】剛才已經轉帳或匯款了</option>
-          <option value="【緊急】已經給出提款卡、密碼或驗證碼">【緊急】已給出提款卡、密碼或驗證碼</option>
-          <option value="【緊急】被對方威脅要散播私密照或個資">【緊急】被威脅要散播私密照或個資</option>
-        </select>
+        <select id="status" required><option value="">載入緊急狀況中...</option></select>
       </div>
       <div class="form-group">
         <label>詐騙類型：</label>
@@ -136,6 +131,11 @@
       <div class="form-group" style="margin-top: 10px;">
         <label>專屬查詢代碼</label>
         <input type="text" id="resumeCodeInput" placeholder="例如：HELP-EZ4A" style="text-transform: uppercase;">
+      </div>
+      <div class="form-group">
+        <label>案件專屬存取憑證</label>
+        <input type="password" id="resumeTokenInput" placeholder="建立案件時取得的專屬憑證">
+        <small style="color:var(--text-muted);">請同時提供建立案件時取得的專屬憑證；案件代碼本身不能授權進入聊天室。</small>
       </div>
       <button onclick="handleResumeChat()" id="resumeBtn" class="btn-primary" style="margin-top: 10px;">進入聊天室</button>
     </div>
@@ -159,6 +159,13 @@
         <button onclick="handleAddCategory()" style="padding: 0 14px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">新增</button>
       </div>
     </div>
+    <div style="background: white; padding: 12px; border-radius: 10px; border: 1.5px solid var(--border-color); margin-bottom: 16px;">
+      <h4 style="margin: 0 0 8px 0; font-size: 0.95rem;">🚨 手動新增緊急狀況</h4>
+      <div style="display: flex; gap: 8px;">
+        <input type="text" id="newEmergencyInput" maxlength="50" placeholder="例如：帳戶遭盜用" style="flex: 1; padding: 8px;">
+        <button onclick="handleAddEmergencySituation()" style="padding: 0 14px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">新增</button>
+      </div>
+    </div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <h3 style="margin:0; font-size:1rem;">求救案件列表</h3>
       <button onclick="loadAdminCases()" style="padding:4px 10px; font-size:0.8rem; cursor:pointer; background:#EFECE6; border:none; border-radius:6px;">重新整理</button>
@@ -180,7 +187,7 @@
 </div>
 
 <script>
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbwGZ8K-ypeaTH9ZDQ9COGbB5VkU1D3xf3V-GuJE75uBeaIz0e4UfDYpkoYlRys6C9PSag/exec";
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbyvYLnd1TqFpRxQBMQKYXeD4I6GGzUhgK_58gS7LYWXx9W4u2x3cz9DZ3x68gIaIHo7BA/exec";
 
   const bg = document.getElementById('natureBg');
   for (let i = 0; i < 12; i++) {
@@ -196,8 +203,11 @@
   let currentCode = '';
   let currentUserRole = '學生';
   let refreshTimer = null;
+  let studentToken = sessionStorage.getItem('anxin_student_token') || '';
+  let studentCode = sessionStorage.getItem('anxin_student_code') || '';
+  let volunteerToken = sessionStorage.getItem('anxin_volunteer_token') || '';
 
-  window.onload = function() { loadCategories(); };
+  window.onload = function() { loadStudentOptions(); };
 
   async function apiGet(action, params = {}) {
     // 💡 加上 api=true 確保 GAS 知道這是 API 請求，絕對不回傳 HTML
@@ -215,30 +225,64 @@
     return await res.json();
   }
 
-  async function loadCategories() {
-    const res = await apiGet('getCategories');
-    if (res.success) {
-      const select = document.getElementById('scamType');
-      select.innerHTML = '';
-      res.categories.forEach(cat => {
-        const opt = document.createElement('option');
-        opt.value = cat; opt.innerText = cat;
-        select.appendChild(opt);
-      });
+  async function loadStudentOptions() {
+    try {
+      const [catRes, emergencyRes] = await Promise.all([
+        apiGet('getCategories'),
+        apiGet('getEmergencySituations')
+      ]);
+      if (catRes.success) populateSelect('scamType', catRes.categories, '請選擇詐騙類型');
+      if (emergencyRes.success) populateSelect('status', emergencyRes.situations, '請選擇目前最緊急的狀況');
+    } catch (err) {
+      console.error(err);
+      alert('選項載入失敗，請重新整理頁面。');
     }
+  }
+
+  function populateSelect(id, values, placeholder) {
+    const select = document.getElementById(id);
+    select.replaceChildren();
+    const first = document.createElement('option');
+    first.value = '';
+    first.textContent = placeholder;
+    select.appendChild(first);
+    (values || []).forEach(value => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = value;
+      select.appendChild(option);
+    });
   }
 
   async function handleAddCategory() {
     const input = document.getElementById('newCatInput');
     const val = input.value.trim();
     if (!val) return alert('請輸入類別名稱！');
-    const res = await apiPost({ action: 'addCategory', category: val });
+    const res = await apiPost({ action: 'addCategory', category: val, token: volunteerToken });
     if (res.success) {
       alert('成功新增類別！');
       input.value = '';
-      loadCategories();
+      loadStudentOptions();
     } else {
       alert(res.message);
+    }
+  }
+
+  async function handleAddEmergencySituation() {
+    const input = document.getElementById('newEmergencyInput');
+    const val = input.value.trim();
+    if (!val) return alert('請輸入緊急狀況名稱！');
+    const res = await apiPost({
+      action: 'addEmergencySituation',
+      situation: val,
+      token: volunteerToken
+    });
+    if (res.success) {
+      alert('成功新增緊急狀況！');
+      input.value = '';
+      await loadStudentOptions();
+    } else {
+      alert(res.message || '新增失敗');
     }
   }
 
@@ -264,7 +308,7 @@
       document.getElementById('btnStudentTab').classList.add('active');
       document.getElementById('roleBadge').innerText = '匿名連線中';
       showScreen('studentView');
-      loadCategories();
+      loadStudentOptions();
     } else {
       document.getElementById('btnAdminTab').classList.add('active');
       document.getElementById('roleBadge').innerText = '志工模式';
@@ -294,13 +338,21 @@
 
     const formData = {
       status: document.getElementById('status').value,
+      emergencySituation: document.getElementById('status').value,
       scamType: document.getElementById('scamType').value,
       description: document.getElementById('description').value
     };
 
     const res = await apiPost({ action: 'startNewChat', formData });
     btn.disabled = false; btn.innerText = '送出並建立匿名聊天室';
-    if (res.success) enterChatRoom(res.code);
+    if (res.success) {
+      studentToken = res.token;
+      studentCode = res.code;
+      sessionStorage.setItem('anxin_student_token', studentToken);
+      sessionStorage.setItem('anxin_student_code', studentCode);
+      alert('案件已建立！請妥善保存以下兩項資料，以便日後繼續對話：\\n案件代碼：' + studentCode + '\\n專屬存取憑證：' + studentToken + '\\n\\n請勿將存取憑證提供給他人。');
+      enterChatRoom(res.code);
+    }
     else alert(res.message);
   }
 
@@ -308,8 +360,16 @@
     currentUserRole = '學生';
     const code = document.getElementById('resumeCodeInput').value.trim();
     if (!code) return alert('請輸入代碼！');
-    const res = await apiGet('getChatHistory', { code });
-    if (res.found) enterChatRoom(res.code);
+    const token = document.getElementById('resumeTokenInput').value.trim() || studentToken;
+    if (!token) return alert('請輸入案件專屬存取憑證。');
+    const res = await apiGet('getChatHistory', { code, token });
+    if (res.found) {
+      studentToken = token;
+      studentCode = res.code;
+      sessionStorage.setItem('anxin_student_token', token);
+      sessionStorage.setItem('anxin_student_code', res.code);
+      enterChatRoom(res.code);
+    }
     else alert(res.message);
   }
 
@@ -321,7 +381,10 @@
     const res = await apiPost({ action: 'volunteerLogin', password: pwd });
     btn.disabled = false; btn.innerText = '登入';
     if (res.success) {
+      volunteerToken = res.token;
+      sessionStorage.setItem('anxin_volunteer_token', volunteerToken);
       showScreen('adminDashboard');
+      loadStudentOptions();
       loadAdminCases();
     } else {
       alert(res.message);
@@ -331,7 +394,7 @@
   async function loadAdminCases() {
     const container = document.getElementById('caseListContainer');
     container.innerHTML = '載入中...';
-    const res = await apiGet('getAllCases');
+    const res = await apiGet('getAllCases', { token: volunteerToken });
     if (res.success) {
       if (!res.cases || res.cases.length === 0) {
         container.innerHTML = '<div style="padding: 16px; background: white; border-radius: 12px; border: 1.5px solid var(--border-color); text-align: center; color: var(--text-muted); font-size: 0.9rem;">目前無案件。</div>';
@@ -342,11 +405,20 @@
         const isReplied = c.processStatus === '已回覆';
         const card = document.createElement('div');
         card.className = 'case-card';
-        card.innerHTML = `
-          <div><strong>${c.code}</strong> <span class="status-badge ${isReplied ? 'status-replied' : 'status-unreplied'}">${c.processStatus}</span></div>
-          <div style="font-size:0.85rem; color:var(--text-main); margin-top:4px;">狀況：${c.status}</div>
-          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">時間：${c.time} | 類型：${c.scamType}</div>
-        `;
+        const title = document.createElement('div');
+        const codeStrong = document.createElement('strong');
+        codeStrong.textContent = c.code || '';
+        const badge = document.createElement('span');
+        badge.className = `status-badge ${isReplied ? 'status-replied' : 'status-unreplied'}`;
+        badge.textContent = c.processStatus || '未回覆';
+        title.append(codeStrong, badge);
+        const situation = document.createElement('div');
+        situation.style.cssText = 'font-size:0.85rem; color:var(--text-main); margin-top:4px;';
+        situation.textContent = '目前最緊急的狀況：' + (c.emergencySituation || c.status || '未填寫');
+        const meta = document.createElement('div');
+        meta.style.cssText = 'font-size:0.75rem; color:var(--text-muted); margin-top:2px;';
+        meta.textContent = `時間：${c.time || ''} | 類型：${c.scamType || ''}`;
+        card.append(title, situation, meta);
         card.onclick = () => { currentUserRole = '志工'; enterChatRoom(c.code); };
         container.appendChild(card);
       });
@@ -359,6 +431,7 @@
     currentCode = code;
     document.getElementById('displayCode').innerText = code;
     showScreen('chatView');
+    if (refreshTimer) clearInterval(refreshTimer);
     fetchMessages();
     refreshTimer = setInterval(fetchMessages, 5000);
   }
@@ -376,7 +449,7 @@
 
   async function fetchMessages() {
     if (!currentCode) return;
-    const res = await apiGet('getChatHistory', { code: currentCode });
+    const res = await apiGet('getChatHistory', { code: currentCode, token: currentUserRole === '志工' ? volunteerToken : studentToken });
     if (res.found) renderMessages(res.messages);
   }
 
@@ -385,7 +458,7 @@
     const text = input.value.trim();
     if (!text) return;
     input.value = '';
-    const res = await apiPost({ action: 'sendChatMessage', code: currentCode, text, sender: currentUserRole });
+    const res = await apiPost({ action: 'sendChatMessage', code: currentCode, text, token: currentUserRole === '志工' ? volunteerToken : studentToken });
     if (res.found) renderMessages(res.messages);
   }
 
