@@ -108,7 +108,7 @@
   <div id="studentView" class="view-section">
     <div class="tabs">
       <button class="tab-btn active" id="subTabNew" onclick="switchStudentTab('new')">發起新求救</button>
-      <button class="tab-btn" id="subTabResume" onclick="switchStudentTab('resume')">輸入代碼繼續聊</button>
+      <button class="tab-btn" id="subTabResume" onclick="switchStudentTab('resume')">使用中文密語登入</button>
     </div>
 
     <form id="newChatForm" onsubmit="handleStartChat(event)">
@@ -121,6 +121,15 @@
         <select id="scamType" required></select>
       </div>
       <div class="form-group">
+        <label>設定你的中文密語（6～24 個字）</label>
+        <input type="password" id="newPassphrase" minlength="6" maxlength="24" autocomplete="new-password" placeholder="例如：月光森林裡的紙飛機" required>
+        <small style="color:var(--text-muted);">請設定別人不容易猜到的詞語組合，並自行記住。密語不會以明文保存。</small>
+      </div>
+      <div class="form-group">
+        <label>再次輸入中文密語</label>
+        <input type="password" id="confirmPassphrase" minlength="6" maxlength="24" autocomplete="new-password" placeholder="再次輸入相同密語" required>
+      </div>
+      <div class="form-group">
         <label>情況簡述（不留真實姓名）：</label>
         <textarea id="description" placeholder="請簡單描述發生經過..." required></textarea>
       </div>
@@ -129,13 +138,9 @@
 
     <div id="resumeForm" class="hidden">
       <div class="form-group" style="margin-top: 10px;">
-        <label>專屬查詢代碼</label>
-        <input type="text" id="resumeCodeInput" placeholder="例如：HELP-EZ4A" style="text-transform: uppercase;">
-      </div>
-      <div class="form-group">
-        <label>案件專屬存取憑證</label>
-        <input type="password" id="resumeTokenInput" placeholder="建立案件時取得的專屬憑證">
-        <small style="color:var(--text-muted);">請同時提供建立案件時取得的專屬憑證；案件代碼本身不能授權進入聊天室。</small>
+        <label>輸入你設定的中文密語</label>
+        <input type="password" id="resumePassphrase" maxlength="24" autocomplete="current-password" placeholder="輸入建立案件時設定的中文密語">
+        <small style="color:var(--text-muted);">忘記密語時，請聯絡志工協助重設，不需要案件代碼或額外憑證。</small>
       </div>
       <button onclick="handleResumeChat()" id="resumeBtn" class="btn-primary" style="margin-top: 10px;">進入聊天室</button>
     </div>
@@ -152,6 +157,9 @@
   </div>
 
   <div id="adminDashboard" class="view-section hidden">
+    <div style="background:#F4F7F3; padding:10px 12px; border-radius:10px; margin-bottom:14px; color:var(--text-muted); font-size:0.82rem;">
+      舊版案件尚未設定中文密語時，請先由志工確認求助者身分，再使用「重設中文密語」協助學生自行設定。請勿替學生選擇或記錄密語。
+    </div>
     <div style="background: white; padding: 12px; border-radius: 10px; border: 1.5px solid var(--border-color); margin-bottom: 16px;">
       <h4 style="margin: 0 0 8px 0; font-size: 0.95rem;">➕ 手動新增危機類別</h4>
       <div style="display: flex; gap: 8px;">
@@ -166,6 +174,17 @@
         <button onclick="handleAddEmergencySituation()" style="padding: 0 14px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">新增</button>
       </div>
     </div>
+    <div id="resetPhrasePanel" class="hidden" style="background:#F4F7F3; padding:14px; border-radius:12px; border:1px solid var(--border-color); margin-bottom:14px;">
+      <strong>協助學生重設中文密語</strong>
+      <p style="font-size:0.82rem; color:var(--text-muted); margin:6px 0 10px;">請讓學生親自輸入新密語。志工不需要知道密語內容。</p>
+      <input type="hidden" id="resetPhraseCaseCode">
+      <div class="form-group"><input type="password" id="resetPhraseInput" maxlength="24" placeholder="學生輸入新的中文密語" autocomplete="new-password"></div>
+      <div class="form-group"><input type="password" id="resetPhraseConfirm" maxlength="24" placeholder="再次輸入確認" autocomplete="new-password"></div>
+      <div style="display:flex; gap:8px;">
+        <button onclick="submitPassphraseReset()" class="btn-primary" style="flex:1;">確認重設</button>
+        <button onclick="closePassphraseReset()" type="button" style="padding:10px 14px; border:1px solid var(--border-color); border-radius:10px; background:white;">取消</button>
+      </div>
+    </div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <h3 style="margin:0; font-size:1rem;">求救案件列表</h3>
       <button onclick="loadAdminCases()" style="padding:4px 10px; font-size:0.8rem; cursor:pointer; background:#EFECE6; border:none; border-radius:6px;">重新整理</button>
@@ -175,7 +194,7 @@
 
   <div id="chatView" class="chat-view">
     <div class="chat-banner">
-      <span>代碼：<span id="displayCode" class="code-tag"></span></span>
+      <span id="chatBannerLabel">匿名聊天室</span><span id="displayCode" class="code-tag hidden"></span>
       <button onclick="leaveChat()" style="background:none; border:none; color:var(--primary-color); cursor:pointer; font-size:0.85rem; font-weight:600; text-decoration:underline;">離開</button>
     </div>
     <div id="chatMessages" class="chat-messages"></div>
@@ -187,7 +206,7 @@
 </div>
 
 <script>
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbyvYLnd1TqFpRxQBMQKYXeD4I6GGzUhgK_58gS7LYWXx9W4u2x3cz9DZ3x68gIaIHo7BA/exec";
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbwva6txj_PzNXpPtdBAOQgsCzmOXD0DdDgKs6vBqkg0_JJOr8lH12H3uMXfPeWlXbn2Sg/exec";
 
   const bg = document.getElementById('natureBg');
   for (let i = 0; i < 12; i++) {
@@ -334,43 +353,93 @@
     e.preventDefault();
     currentUserRole = '學生';
     const btn = document.getElementById('startBtn');
-    btn.disabled = true; btn.innerText = '建立中...';
-
-    const formData = {
-      status: document.getElementById('status').value,
-      emergencySituation: document.getElementById('status').value,
-      scamType: document.getElementById('scamType').value,
-      description: document.getElementById('description').value
-    };
-
-    const res = await apiPost({ action: 'startNewChat', formData });
-    btn.disabled = false; btn.innerText = '送出並建立匿名聊天室';
-    if (res.success) {
-      studentToken = res.token;
-      studentCode = res.code;
-      sessionStorage.setItem('anxin_student_token', studentToken);
-      sessionStorage.setItem('anxin_student_code', studentCode);
-      alert('案件已建立！請妥善保存以下兩項資料，以便日後繼續對話：\\n案件代碼：' + studentCode + '\\n專屬存取憑證：' + studentToken + '\\n\\n請勿將存取憑證提供給他人。');
-      enterChatRoom(res.code);
+    const phrase = document.getElementById('newPassphrase').value.trim();
+    const confirmPhrase = document.getElementById('confirmPassphrase').value.trim();
+    if (phrase !== confirmPhrase) return alert('兩次輸入的中文密語不一致。');
+    if (Array.from(phrase).length < 6 || Array.from(phrase).length > 24 || !/[\u3400-\u9fff]/.test(phrase)) {
+      return alert('中文密語需為 6～24 個字，且必須包含中文字。');
     }
-    else alert(res.message);
+    btn.disabled = true; btn.innerText = '建立中...';
+    try {
+      const formData = {
+        status: document.getElementById('status').value,
+        emergencySituation: document.getElementById('status').value,
+        scamType: document.getElementById('scamType').value,
+        description: document.getElementById('description').value
+      };
+      const res = await apiPost({ action: 'startNewChat', formData, passphrase: phrase });
+      if (res.success) {
+        studentToken = res.token;
+        studentCode = res.code;
+        sessionStorage.setItem('anxin_student_token', studentToken);
+        sessionStorage.setItem('anxin_student_code', studentCode);
+        document.getElementById('newPassphrase').value = '';
+        document.getElementById('confirmPassphrase').value = '';
+        document.getElementById('description').value = '';
+        alert('匿名案件已建立！請記住你設定的中文密語；之後只要輸入密語即可回到聊天室。');
+        enterChatRoom(res.code);
+      } else alert(res.message || '建立失敗');
+    } catch (err) {
+      console.error(err); alert('目前無法連線，請稍後再試。');
+    } finally {
+      btn.disabled = false; btn.innerText = '送出並建立匿名聊天室';
+    }
   }
 
   async function handleResumeChat() {
     currentUserRole = '學生';
-    const code = document.getElementById('resumeCodeInput').value.trim();
-    if (!code) return alert('請輸入代碼！');
-    const token = document.getElementById('resumeTokenInput').value.trim() || studentToken;
-    if (!token) return alert('請輸入案件專屬存取憑證。');
-    const res = await apiGet('getChatHistory', { code, token });
-    if (res.found) {
-      studentToken = token;
-      studentCode = res.code;
-      sessionStorage.setItem('anxin_student_token', token);
-      sessionStorage.setItem('anxin_student_code', res.code);
-      enterChatRoom(res.code);
+    const phrase = document.getElementById('resumePassphrase').value.trim();
+    if (!phrase) return alert('請輸入中文密語。');
+    const btn = document.getElementById('resumeBtn');
+    btn.disabled = true; btn.innerText = '驗證中...';
+    try {
+      const res = await apiPost({ action: 'studentPassphraseLogin', passphrase: phrase });
+      if (res.success) {
+        studentToken = res.token;
+        studentCode = res.code;
+        sessionStorage.setItem('anxin_student_token', studentToken);
+        sessionStorage.setItem('anxin_student_code', studentCode);
+        document.getElementById('resumePassphrase').value = '';
+        enterChatRoom(res.code);
+      } else alert(res.message || '登入失敗');
+    } catch (err) {
+      console.error(err); alert('目前無法連線，請稍後再試。');
+    } finally {
+      btn.disabled = false; btn.innerText = '進入聊天室';
     }
-    else alert(res.message);
+  }
+
+  function openPassphraseReset(code) {
+    document.getElementById('resetPhraseCaseCode').value = code;
+    document.getElementById('resetPhraseInput').value = '';
+    document.getElementById('resetPhraseConfirm').value = '';
+    document.getElementById('resetPhrasePanel').classList.remove('hidden');
+    document.getElementById('resetPhraseInput').focus();
+  }
+
+  function closePassphraseReset() {
+    document.getElementById('resetPhrasePanel').classList.add('hidden');
+    document.getElementById('resetPhraseInput').value = '';
+    document.getElementById('resetPhraseConfirm').value = '';
+  }
+
+  async function submitPassphraseReset() {
+    const code = document.getElementById('resetPhraseCaseCode').value;
+    const phrase = document.getElementById('resetPhraseInput').value.trim();
+    const confirmPhrase = document.getElementById('resetPhraseConfirm').value.trim();
+    if (phrase !== confirmPhrase) return alert('兩次輸入的中文密語不一致。');
+    if (Array.from(phrase).length < 6 || Array.from(phrase).length > 24 || !/[\u3400-\u9fff]/.test(phrase)) {
+      return alert('中文密語需為 6～24 個字，且必須包含中文字。');
+    }
+    try {
+      const res = await apiPost({ action: 'volunteerResetPassphrase', code, passphrase: phrase, token: volunteerToken });
+      if (res.success) {
+        closePassphraseReset();
+        alert('重設成功。請學生使用新密語登入；舊的學生登入狀態已失效。');
+      } else alert(res.message || '重設失敗');
+    } catch (err) {
+      console.error(err); alert('目前無法連線，請稍後再試。');
+    }
   }
 
   async function handleAdminLogin() {
@@ -419,7 +488,18 @@
         meta.style.cssText = 'font-size:0.75rem; color:var(--text-muted); margin-top:2px;';
         meta.textContent = `時間：${c.time || ''} | 類型：${c.scamType || ''}`;
         card.append(title, situation, meta);
-        card.onclick = () => { currentUserRole = '志工'; enterChatRoom(c.code); };
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex; gap:8px; margin-top:10px;';
+        const openBtn = document.createElement('button');
+        openBtn.textContent = '查看聊天室';
+        openBtn.style.cssText = 'padding:7px 10px; border:0; border-radius:8px; background:var(--primary-color); color:white; cursor:pointer;';
+        openBtn.onclick = (ev) => { ev.stopPropagation(); currentUserRole = '志工'; enterChatRoom(c.code); };
+        const resetBtn = document.createElement('button');
+        resetBtn.textContent = '重設中文密語';
+        resetBtn.style.cssText = 'padding:7px 10px; border:1px solid var(--border-color); border-radius:8px; background:white; color:var(--text-main); cursor:pointer;';
+        resetBtn.onclick = (ev) => { ev.stopPropagation(); openPassphraseReset(c.code); };
+        actions.append(openBtn, resetBtn);
+        card.appendChild(actions);
         container.appendChild(card);
       });
     } else {
@@ -430,6 +510,8 @@
   function enterChatRoom(code) {
     currentCode = code;
     document.getElementById('displayCode').innerText = code;
+    document.getElementById('displayCode').classList.toggle('hidden', currentUserRole === '學生');
+    document.getElementById('chatBannerLabel').textContent = currentUserRole === '學生' ? '匿名聊天室' : '案件：';
     showScreen('chatView');
     if (refreshTimer) clearInterval(refreshTimer);
     fetchMessages();
